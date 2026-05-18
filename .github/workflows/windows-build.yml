@@ -14,6 +14,7 @@ jobs:
       QT_VERSION: 6.6.3
       QT_ARCH: win64_msvc2019_64
       BUILD_TYPE: Release
+      GSTREAMER_VERSION: 1.24.12
 
     steps:
       - name: Checkout source
@@ -28,6 +29,52 @@ jobs:
           arch: ${{ env.QT_ARCH }}
           modules: qt5compat qtcharts qtlocation qtpositioning qtserialport qtmultimedia qtshadertools qtsensors qtspeech qtconnectivity
 
+      - name: Install GStreamer runtime and development
+        shell: powershell
+        run: |
+          $version = "$env:GSTREAMER_VERSION"
+          $baseUrl = "https://gstreamer.freedesktop.org/data/pkg/windows/$version/msvc"
+
+          $runtimeName = "gstreamer-1.0-msvc-x86_64-$version.msi"
+          $develName   = "gstreamer-1.0-devel-msvc-x86_64-$version.msi"
+
+          $runtimeUrl = "$baseUrl/$runtimeName"
+          $develUrl   = "$baseUrl/$develName"
+
+          $runtimePath = "$env:RUNNER_TEMP\$runtimeName"
+          $develPath   = "$env:RUNNER_TEMP\$develName"
+
+          Write-Host "Downloading GStreamer runtime: $runtimeUrl"
+          Invoke-WebRequest -Uri $runtimeUrl -OutFile $runtimePath
+
+          Write-Host "Downloading GStreamer development package: $develUrl"
+          Invoke-WebRequest -Uri $develUrl -OutFile $develPath
+
+          Write-Host "Installing GStreamer runtime..."
+          Start-Process msiexec.exe -Wait -ArgumentList @('/i', $runtimePath, '/qn', '/norestart')
+
+          Write-Host "Installing GStreamer development package..."
+          Start-Process msiexec.exe -Wait -ArgumentList @('/i', $develPath, '/qn', '/norestart')
+
+          $gstRoot = "C:\gstreamer\1.0\msvc_x86_64"
+
+          if (!(Test-Path "$gstRoot\bin\pkg-config.exe")) {
+            throw "pkg-config.exe not found at $gstRoot\bin\pkg-config.exe"
+          }
+
+          if (!(Test-Path "$gstRoot\lib\gstreamer-1.0")) {
+            throw "GStreamer plugins folder not found at $gstRoot\lib\gstreamer-1.0"
+          }
+
+          echo "GSTREAMER_1_0_ROOT_MSVC_X86_64=$gstRoot\" >> $env:GITHUB_ENV
+          echo "PKG_CONFIG=$gstRoot\bin\pkg-config.exe" >> $env:GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$gstRoot\lib\pkgconfig" >> $env:GITHUB_ENV
+          echo "GSTREAMER_PLUGIN_PATH=$gstRoot\lib\gstreamer-1.0" >> $env:GITHUB_ENV
+          echo "GST_PLUGIN_SYSTEM_PATH_1_0=$gstRoot\lib\gstreamer-1.0" >> $env:GITHUB_ENV
+          echo "$gstRoot\bin" >> $env:GITHUB_PATH
+
+          Write-Host "GStreamer installed successfully at $gstRoot"
+
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
@@ -37,7 +84,7 @@ jobs:
       - name: Configure CMake
         shell: cmd
         run: |
-          cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DQGC_ENABLE_VIDEO_STREAMING=OFF -DQGC_ENABLE_QT_VIDEOSTREAMING=OFF -DQGC_ENABLE_GST_VIDEOSTREAMING=OFF -DQGC_ENABLE_BLUETOOTH=OFF
+          cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=%BUILD_TYPE%
 
       - name: Build
         shell: cmd
@@ -63,6 +110,41 @@ jobs:
           windeployqt --release --qmldir "$env:GITHUB_WORKSPACE\src" "$($exe.FullName)"
 
           Rename-Item "$($exe.FullName)" "G-Navron Control.exe"
+
+          $gstSrc = "C:\gstreamer\1.0\msvc_x86_64"
+          $gstDst = Join-Path $releaseDir "gstreamer\1.0\msvc_x86_64"
+
+          New-Item -ItemType Directory -Force -Path $gstDst | Out-Null
+
+          Write-Host "Copying GStreamer runtime into package..."
+
+          robocopy "$gstSrc\bin" "$gstDst\bin" /E
+          if ($LASTEXITCODE -le 7) { $global:LASTEXITCODE = 0 } else { exit $LASTEXITCODE }
+
+          robocopy "$gstSrc\lib\gstreamer-1.0" "$gstDst\lib\gstreamer-1.0" /E
+          if ($LASTEXITCODE -le 7) { $global:LASTEXITCODE = 0 } else { exit $LASTEXITCODE }
+
+          if (Test-Path "$gstSrc\lib\gio") {
+            robocopy "$gstSrc\lib\gio" "$gstDst\lib\gio" /E
+            if ($LASTEXITCODE -le 7) { $global:LASTEXITCODE = 0 } else { exit $LASTEXITCODE }
+          }
+
+          if (Test-Path "$gstSrc\share") {
+            robocopy "$gstSrc\share" "$gstDst\share" /E
+            if ($LASTEXITCODE -le 7) { $global:LASTEXITCODE = 0 } else { exit $LASTEXITCODE }
+          }
+
+          $launcherPath = Join-Path $releaseDir "Run G-Navron Control.bat"
+
+          @"
+          @echo off
+          set APPDIR=%~dp0
+          set GSTREAMER_1_0_ROOT_MSVC_X86_64=%APPDIR%gstreamer\1.0\msvc_x86_64\
+          set PATH=%GSTREAMER_1_0_ROOT_MSVC_X86_64%bin;%PATH%
+          set GST_PLUGIN_PATH=%GSTREAMER_1_0_ROOT_MSVC_X86_64%lib\gstreamer-1.0
+          set GST_PLUGIN_SYSTEM_PATH_1_0=%GSTREAMER_1_0_ROOT_MSVC_X86_64%lib\gstreamer-1.0
+          start "" "%APPDIR%G-Navron Control.exe"
+          "@ | Set-Content -Encoding ASCII $launcherPath
 
           Compress-Archive -Path "$releaseDir\*" -DestinationPath "$env:GITHUB_WORKSPACE\G-Navron-Control-Windows.zip" -Force
 
