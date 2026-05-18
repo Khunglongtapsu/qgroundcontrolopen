@@ -1,0 +1,73 @@
+name: Build Windows G-Navron Control
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - g-navron-windows-build
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    env:
+      QT_VERSION: 6.6.3
+      QT_ARCH: win64_msvc2019_64
+      BUILD_TYPE: Release
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: ${{ env.QT_ARCH }}
+          modules: qt5compat qtcharts qtlocation qtpositioning qtserialport qtmultimedia qtshadertools
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - name: Configure CMake
+        shell: cmd
+        run: |
+          cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=%BUILD_TYPE%
+
+      - name: Build
+        shell: cmd
+        run: |
+          cmake --build build --config %BUILD_TYPE%
+
+      - name: Find executable
+        shell: powershell
+        run: |
+          Get-ChildItem -Path build -Filter *.exe -Recurse
+
+      - name: Deploy Qt runtime and package
+        shell: powershell
+        run: |
+          $exe = Get-ChildItem -Path build -Filter QGroundControl.exe -Recurse | Select-Object -First 1
+          if ($null -eq $exe) {
+            throw "QGroundControl.exe not found"
+          }
+
+          $releaseDir = $exe.Directory.FullName
+          Write-Host "Release dir: $releaseDir"
+
+          windeployqt --release --qmldir "$env:GITHUB_WORKSPACE\src" "$($exe.FullName)"
+
+          Rename-Item "$($exe.FullName)" "G-Navron Control.exe"
+
+          Compress-Archive -Path "$releaseDir\*" -DestinationPath "$env:GITHUB_WORKSPACE\G-Navron-Control-Windows.zip" -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: G-Navron-Control-Windows
+          path: G-Navron-Control-Windows.zip
