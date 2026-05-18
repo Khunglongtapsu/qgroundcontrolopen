@@ -20,14 +20,14 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: qt5compat qtcharts qtconnectivity qtimageformats qtlocation qtmultimedia qtpositioning qtquick3d qtserialport qtshadertools qtsensors qtspeech qtsvg qtwebsockets
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
           arch: ${{ env.QT_ARCH }}
-          modules: qt5compat qtcharts qtlocation qtpositioning qtserialport qtmultimedia qtshadertools qtsensors qtspeech qtconnectivity qtquick3d
+          modules: qt5compat qtcharts qtconnectivity qtimageformats qtlocation qtmultimedia qtpositioning qtquick3d qtserialport qtshadertools qtsensors qtspeech qtsvg qtwebsockets
 
       - name: Install GStreamer runtime and development
         shell: powershell
