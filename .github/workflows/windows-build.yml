@@ -243,6 +243,100 @@ jobs:
           Write-Host "Checking remaining qsb.external references:"
           Select-String -Path $ninjaFile -Pattern 'qsb\.external' | Select-Object -First 30
 
+      - name: Generate missing GStreamer qsb external shader files
+        shell: powershell
+        run: |
+          Write-Host "Generating missing GStreamer .qsb.external shader files..."
+
+          $qsbCmd = Get-Command qsb.exe -ErrorAction SilentlyContinue
+
+          if ($null -eq $qsbCmd) {
+            Write-Host "qsb.exe not found in PATH. Searching workspace..."
+            $qsbFile = Get-ChildItem -Path "D:\a" -Filter qsb.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($null -eq $qsbFile) {
+              throw "qsb.exe not found. Qt ShaderTools may not be installed correctly."
+            }
+            $qsb = $qsbFile.FullName
+          } else {
+            $qsb = $qsbCmd.Source
+          }
+
+          Write-Host "Using qsb: $qsb"
+
+          $qrcFiles = Get-ChildItem -Path build -Filter "*.qrc" -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match "gstqml6gl" }
+
+          if ($qrcFiles.Count -eq 0) {
+            Write-Host "No gstqml6gl qrc files found."
+            exit 0
+          }
+
+          $created = 0
+
+          foreach ($qrc in $qrcFiles) {
+            Write-Host "Scanning qrc: $($qrc.FullName)"
+            $content = Get-Content $qrc.FullName -Raw
+
+            $matches = [regex]::Matches($content, '([^<>"\s]+\.qsb\.external)')
+
+            foreach ($m in $matches) {
+              $ref = $m.Groups[1].Value
+
+              if ([System.IO.Path]::IsPathRooted($ref)) {
+                $externalPath = $ref
+              } else {
+                $externalPath = [System.IO.Path]::GetFullPath((Join-Path $qrc.DirectoryName $ref))
+              }
+
+              if (Test-Path $externalPath) {
+                continue
+              }
+
+              $externalName = [System.IO.Path]::GetFileName($externalPath)
+              $shaderName = $externalName -replace '\.qsb\.external$', ''
+
+              Write-Host "Missing external shader: $externalPath"
+              Write-Host "Looking for source shader: $shaderName"
+
+              $sourceShader = Get-ChildItem -Path build -Filter $shaderName -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName -match "gstreamer_good_plugins" -and $_.FullName -match "ext[\\/]+qt6" } |
+                Select-Object -First 1
+
+              if ($null -eq $sourceShader) {
+                throw "Cannot find source shader for $shaderName"
+              }
+
+              $qsbPath = $externalPath -replace '\.external$', ''
+
+              New-Item -ItemType Directory -Force -Path ([System.IO.Path]::GetDirectoryName($externalPath)) | Out-Null
+
+              Write-Host "Compiling shader:"
+              Write-Host "  Source: $($sourceShader.FullName)"
+              Write-Host "  Output: $qsbPath"
+
+              & $qsb --glsl "100 es,120,150" --hlsl 50 --msl 12 -o "$qsbPath" "$($sourceShader.FullName)"
+
+              if ($LASTEXITCODE -ne 0) {
+                throw "qsb failed for $($sourceShader.FullName)"
+              }
+
+              if (!(Test-Path $qsbPath)) {
+                throw "qsb output not found: $qsbPath"
+              }
+
+              Copy-Item $qsbPath $externalPath -Force
+
+              if (!(Test-Path $externalPath)) {
+                throw "Failed to create external qsb file: $externalPath"
+              }
+
+              $created++
+            }
+          }
+
+          Write-Host "Created missing .qsb.external files: $created"
+
+
       - name: Build
         shell: cmd
         run: |
