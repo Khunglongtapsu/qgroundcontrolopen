@@ -50,62 +50,68 @@ jobs:
           Write-Host "Installing GStreamer development..."
           Start-Process msiexec.exe -Wait -ArgumentList @('/i', $develPath, '/qn', '/norestart')
 
-          Write-Host "Searching GStreamer installation..."
-
-          $candidateRoots = @(
-            "C:\gstreamer\1.0\msvc_x86_64",
+          $installedCandidates = @(
             "C:\Program Files\gstreamer\1.0\msvc_x86_64",
-            "C:\gstreamer\1.0\x86_64",
-            "C:\Program Files\gstreamer\1.0\x86_64"
+            "C:\gstreamer\1.0\msvc_x86_64"
           )
 
-          $gstRoot = $null
-
-          foreach ($c in $candidateRoots) {
-            Write-Host "Checking $c"
-            if ((Test-Path "$c\bin") -and (Test-Path "$c\lib")) {
-              $gstRoot = $c
+          $installedRoot = $null
+          foreach ($c in $installedCandidates) {
+            if (Test-Path "$c\bin") {
+              $installedRoot = $c
               break
             }
           }
 
-          if ($null -eq $gstRoot) {
-            Write-Host "Could not find GStreamer in common locations. Listing possible folders..."
-            Get-ChildItem -Path "C:\" -Recurse -Directory -ErrorAction SilentlyContinue |
-              Where-Object { $_.FullName -match "gstreamer|msvc_x86_64" } |
-              Select-Object -First 80 FullName |
-              Format-Table -AutoSize
-
-            throw "GStreamer root not found"
+          if ($null -eq $installedRoot) {
+            throw "GStreamer installed root not found"
           }
 
-          Write-Host "GStreamer root detected: $gstRoot"
+          Write-Host "Detected installed GStreamer root: $installedRoot"
+
+          # Copy to no-space path to avoid CMake/pkg-config splitting C:/Program Files into C:/Program
+          $gstRoot = "C:\gstreamer\1.0\msvc_x86_64"
+
+          if (Test-Path $gstRoot) {
+            Remove-Item $gstRoot -Recurse -Force
+          }
+
+          New-Item -ItemType Directory -Force -Path "C:\gstreamer\1.0" | Out-Null
+          Copy-Item -Path $installedRoot -Destination $gstRoot -Recurse -Force
+
+          $gstRootUnix = "C:/gstreamer/1.0/msvc_x86_64"
+
+          Write-Host "Rewriting pkg-config .pc files to no-space prefix..."
+
+          $pcDirs = @(
+            "$gstRoot\lib\pkgconfig",
+            "$gstRoot\lib\gstreamer-1.0\pkgconfig"
+          )
+
+          foreach ($dir in $pcDirs) {
+            if (Test-Path $dir) {
+              Get-ChildItem $dir -Filter "*.pc" -Recurse | ForEach-Object {
+                $content = Get-Content $_.FullName -Raw
+
+                $content = $content `
+                  -replace "C:/Program Files/gstreamer/1.0/msvc_x86_64", $gstRootUnix `
+                  -replace "C:\\Program Files\\gstreamer\\1.0\\msvc_x86_64", "C:\gstreamer\1.0\msvc_x86_64" `
+                  -replace [regex]::Escape($installedRoot.Replace("\", "/")), $gstRootUnix `
+                  -replace [regex]::Escape($installedRoot), "C:\gstreamer\1.0\msvc_x86_64"
+
+                Set-Content -Path $_.FullName -Value $content -Encoding ASCII
+              }
+            }
+          }
 
           $pkgConfig = "$gstRoot\bin\pkg-config.exe"
 
           if (!(Test-Path $pkgConfig)) {
-            Write-Host "pkg-config.exe not found in $gstRoot\bin"
-            Write-Host "Listing bin folder:"
-            Get-ChildItem "$gstRoot\bin" -ErrorAction SilentlyContinue | Select-Object -First 120 Name | Format-Table -AutoSize
-            throw "pkg-config.exe not found"
+            throw "pkg-config.exe not found at $pkgConfig"
           }
 
-          $glibPc = "$gstRoot\lib\pkgconfig\glib-2.0.pc"
-          $gthreadPc = "$gstRoot\lib\pkgconfig\gthread-2.0.pc"
-          $gstPc = "$gstRoot\lib\pkgconfig\gstreamer-1.0.pc"
-
-          if (!(Test-Path $glibPc)) {
-            Write-Host "glib-2.0.pc not found. Listing pkgconfig:"
-            Get-ChildItem "$gstRoot\lib\pkgconfig" -ErrorAction SilentlyContinue | Select-Object -First 120 Name | Format-Table -AutoSize
-            throw "glib-2.0.pc not found"
-          }
-
-          if (!(Test-Path $gthreadPc)) {
-            throw "gthread-2.0.pc not found"
-          }
-
-          if (!(Test-Path $gstPc)) {
-            throw "gstreamer-1.0.pc not found"
+          if (!(Test-Path "$gstRoot\lib\pkgconfig\glib-2.0.pc")) {
+            throw "glib-2.0.pc not found at $gstRoot\lib\pkgconfig"
           }
 
           $env:PKG_CONFIG = $pkgConfig
@@ -113,10 +119,13 @@ jobs:
           $env:PKG_CONFIG_LIBDIR = "$gstRoot\lib\pkgconfig;$gstRoot\lib\gstreamer-1.0\pkgconfig"
           $env:PATH = "$gstRoot\bin;$env:PATH"
 
-          Write-Host "Testing pkg-config..."
+          Write-Host "Testing pkg-config output..."
           & $pkgConfig --modversion glib-2.0
           & $pkgConfig --modversion gthread-2.0
           & $pkgConfig --modversion gstreamer-1.0
+
+          Write-Host "GStreamer cflags:"
+          & $pkgConfig --cflags gstreamer-1.0
 
           echo "GSTREAMER_1_0_ROOT_MSVC_X86_64=$gstRoot\" >> $env:GITHUB_ENV
           echo "GSTREAMER_ROOT_X86_64=$gstRoot\" >> $env:GITHUB_ENV
@@ -127,7 +136,7 @@ jobs:
           echo "GST_PLUGIN_SYSTEM_PATH_1_0=$gstRoot\lib\gstreamer-1.0" >> $env:GITHUB_ENV
           echo "$gstRoot\bin" >> $env:GITHUB_PATH
 
-          Write-Host "GStreamer runtime + development configured successfully."
+          Write-Host "GStreamer configured from no-space path: $gstRoot"
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
