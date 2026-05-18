@@ -8,6 +8,11 @@
  ****************************************************************************/
 
 #include "Vehicle.h"
+#include <QStandardPaths>
+#include <QTextStream>
+#include <QFileInfo>
+#include <QDir>
+#include <QFile>
 #include "Fact.h"
 #include "Actuators.h"
 #include "ADSBVehicleManager.h"
@@ -4276,4 +4281,46 @@ bool Vehicle::gremsySetParam(const QString& paramName, const QVariant& value)
 
     qWarning() << "GREMSY PARAM SET FAIL: parameter not found" << paramName;
     return false;
+}
+
+
+// GREMSY READY CSV WRITER
+QString Vehicle::gremsyAppendCsvLog(const QString& preferredFilePath, const QString& csvLine)
+{
+    QStringList candidates;
+
+    if (!preferredFilePath.isEmpty()) {
+        candidates << preferredFilePath;
+    }
+
+    QString appDataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (appDataDir.isEmpty()) {
+        appDataDir = QDir::homePath() + "/Library/Application Support/GNavronControl";
+    }
+
+    candidates << appDataDir + "/GremsyReady/gremsy_ready_log.csv";
+    candidates << QDir::homePath() + "/GremsyReady/gremsy_ready_log.csv";
+
+    for (const QString& path : candidates) {
+        QFileInfo info(path);
+        QDir dir(info.absolutePath());
+
+        if (!dir.exists()) {
+            dir.mkpath(".");
+        }
+
+        QFile file(path);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+            QTextStream stream(&file);
+            stream << csvLine << "\n";
+            file.close();
+
+            qWarning() << "GREMSY CSV SAVED:" << path;
+            return path;
+        }
+
+        qWarning() << "GREMSY CSV SAVE FAILED:" << path << file.errorString();
+    }
+
+    return QString();
 }

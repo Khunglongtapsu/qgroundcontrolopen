@@ -119,6 +119,8 @@ class Vehicle : public VehicleFactGroup
     friend class GimbalController;                  // Allow GimbalController to call _addFactGroup
 
 public:
+    Q_INVOKABLE QString gremsyAppendCsvLog(const QString& preferredFilePath, const QString& csvLine);
+
     Q_INVOKABLE QVariant gremsyGetParam(const QString& paramName);
     Q_INVOKABLE bool gremsySetParam(const QString& paramName, const QVariant& value);
 
