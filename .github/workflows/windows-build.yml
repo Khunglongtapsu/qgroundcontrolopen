@@ -22,6 +22,40 @@ jobs:
         with:
           submodules: qt5compat qtcharts qtconnectivity qtimageformats qtlocation qtmultimedia qtpositioning qtquick3d qtserialport qtshadertools qtsensors qtspeech qtwebsockets
 
+      - name: Ensure ArduPilot parameter repository
+        shell: powershell
+        run: |
+          $repoPath = "src\FirmwarePlugin\APM\ArduPilot-Parameter-Repository"
+          $requiredFile = "$repoPath\Copter-4.3\apm.pdef.xml"
+
+          Write-Host "Checking ArduPilot parameter repository..."
+
+          if (!(Test-Path $requiredFile)) {
+            Write-Host "Required file missing: $requiredFile"
+            Write-Host "Trying git submodule update first..."
+            git submodule sync --recursive
+            git submodule update --init --recursive
+
+            if (!(Test-Path $requiredFile)) {
+              Write-Host "Submodule update did not provide required file. Re-cloning repository..."
+
+              if (Test-Path $repoPath) {
+                Remove-Item $repoPath -Recurse -Force
+              }
+
+              git clone https://github.com/ArduPilot/ArduPilot-Parameter-Repository.git $repoPath
+            }
+          }
+
+          if (!(Test-Path $requiredFile)) {
+            Write-Host "Listing parameter repository folder:"
+            Get-ChildItem $repoPath -Recurse -ErrorAction SilentlyContinue | Select-Object -First 120 FullName
+            throw "Still missing required ArduPilot parameter file: $requiredFile"
+          }
+
+          Write-Host "ArduPilot parameter repository OK: $requiredFile"
+
+
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
