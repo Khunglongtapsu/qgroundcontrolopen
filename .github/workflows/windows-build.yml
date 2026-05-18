@@ -32,53 +32,36 @@ jobs:
       - name: Install GStreamer runtime and development
         shell: powershell
         run: |
-          Write-Host "Installing GStreamer using Chocolatey..."
-          choco install gstreamer -y --no-progress
+          $runtimeUrl = "https://github.com/Khunglongtapsu/qgroundcontrolopen/releases/download/gstreamer-1.26.9/gstreamer-1.0-msvc-x86_64-1.26.9.msi"
+          $develUrl   = "https://github.com/Khunglongtapsu/qgroundcontrolopen/releases/download/gstreamer-1.26.9/gstreamer-1.0-devel-msvc-x86_64-1.26.9.msi"
 
-          $installedCandidates = @(
-            "C:\Program Files\gstreamer\1.0\msvc_x86_64",
-            "C:\Program Files\gstreamer\1.0\x86_64",
-            "C:\gstreamer\1.0\msvc_x86_64",
-            "C:\gstreamer\1.0\x86_64"
-          )
+          $runtimePath = "$env:RUNNER_TEMP\gstreamer-runtime.msi"
+          $develPath   = "$env:RUNNER_TEMP\gstreamer-devel.msi"
 
-          $installedRoot = $null
+          Write-Host "Downloading GStreamer runtime..."
+          curl.exe -L --fail --retry 5 --retry-delay 5 -o "$runtimePath" "$runtimeUrl"
 
-          foreach ($c in $installedCandidates) {
-            if (Test-Path "$c\bin") {
-              $installedRoot = $c
-              break
-            }
-          }
+          Write-Host "Downloading GStreamer development..."
+          curl.exe -L --fail --retry 5 --retry-delay 5 -o "$develPath" "$develUrl"
 
-          if ($null -eq $installedRoot) {
-            throw "GStreamer root not found after Chocolatey install"
-          }
+          Write-Host "Installing GStreamer runtime..."
+          Start-Process msiexec.exe -Wait -ArgumentList @('/i', $runtimePath, '/qn', '/norestart')
 
-          Write-Host "GStreamer installed root: $installedRoot"
+          Write-Host "Installing GStreamer development..."
+          Start-Process msiexec.exe -Wait -ArgumentList @('/i', $develPath, '/qn', '/norestart')
 
-          # Copy to path without spaces. CMake/pkg-config can be fragile with Program Files paths.
           $gstRoot = "C:\gstreamer\1.0\msvc_x86_64"
-
-          if (Test-Path $gstRoot) {
-            Remove-Item $gstRoot -Recurse -Force
-          }
-
-          New-Item -ItemType Directory -Force -Path "C:\gstreamer\1.0" | Out-Null
-          Copy-Item -Path $installedRoot -Destination $gstRoot -Recurse -Force
 
           if (!(Test-Path "$gstRoot\bin\pkg-config.exe")) {
             throw "pkg-config.exe not found at $gstRoot\bin\pkg-config.exe"
           }
 
           if (!(Test-Path "$gstRoot\lib\pkgconfig\glib-2.0.pc")) {
-            Write-Host "Listing pkgconfig folder:"
-            Get-ChildItem "$gstRoot\lib\pkgconfig" -ErrorAction SilentlyContinue
-            throw "glib-2.0.pc not found. Chocolatey GStreamer package may not include development files."
+            throw "glib-2.0.pc not found after installing GStreamer development package"
           }
 
           if (!(Test-Path "$gstRoot\lib\pkgconfig\gthread-2.0.pc")) {
-            throw "gthread-2.0.pc not found. Chocolatey GStreamer package may not include development files."
+            throw "gthread-2.0.pc not found after installing GStreamer development package"
           }
 
           $env:PKG_CONFIG = "$gstRoot\bin\pkg-config.exe"
@@ -86,7 +69,6 @@ jobs:
           $env:PKG_CONFIG_LIBDIR = "$gstRoot\lib\pkgconfig;$gstRoot\lib\gstreamer-1.0\pkgconfig"
           $env:PATH = "$gstRoot\bin;$env:PATH"
 
-          Write-Host "Testing pkg-config..."
           & "$gstRoot\bin\pkg-config.exe" --modversion glib-2.0
           & "$gstRoot\bin\pkg-config.exe" --modversion gthread-2.0
           & "$gstRoot\bin\pkg-config.exe" --modversion gstreamer-1.0
@@ -100,7 +82,7 @@ jobs:
           echo "GST_PLUGIN_SYSTEM_PATH_1_0=$gstRoot\lib\gstreamer-1.0" >> $env:GITHUB_ENV
           echo "$gstRoot\bin" >> $env:GITHUB_PATH
 
-          Write-Host "GStreamer configured at $gstRoot"
+          Write-Host "GStreamer runtime + development installed successfully."
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
