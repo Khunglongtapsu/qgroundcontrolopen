@@ -50,39 +50,84 @@ jobs:
           Write-Host "Installing GStreamer development..."
           Start-Process msiexec.exe -Wait -ArgumentList @('/i', $develPath, '/qn', '/norestart')
 
-          $gstRoot = "C:\gstreamer\1.0\msvc_x86_64"
+          Write-Host "Searching GStreamer installation..."
 
-          if (!(Test-Path "$gstRoot\bin\pkg-config.exe")) {
-            throw "pkg-config.exe not found at $gstRoot\bin\pkg-config.exe"
+          $candidateRoots = @(
+            "C:\gstreamer\1.0\msvc_x86_64",
+            "C:\Program Files\gstreamer\1.0\msvc_x86_64",
+            "C:\gstreamer\1.0\x86_64",
+            "C:\Program Files\gstreamer\1.0\x86_64"
+          )
+
+          $gstRoot = $null
+
+          foreach ($c in $candidateRoots) {
+            Write-Host "Checking $c"
+            if ((Test-Path "$c\bin") -and (Test-Path "$c\lib")) {
+              $gstRoot = $c
+              break
+            }
           }
 
-          if (!(Test-Path "$gstRoot\lib\pkgconfig\glib-2.0.pc")) {
-            throw "glib-2.0.pc not found after installing GStreamer development package"
+          if ($null -eq $gstRoot) {
+            Write-Host "Could not find GStreamer in common locations. Listing possible folders..."
+            Get-ChildItem -Path "C:\" -Recurse -Directory -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -match "gstreamer|msvc_x86_64" } |
+              Select-Object -First 80 FullName |
+              Format-Table -AutoSize
+
+            throw "GStreamer root not found"
           }
 
-          if (!(Test-Path "$gstRoot\lib\pkgconfig\gthread-2.0.pc")) {
-            throw "gthread-2.0.pc not found after installing GStreamer development package"
+          Write-Host "GStreamer root detected: $gstRoot"
+
+          $pkgConfig = "$gstRoot\bin\pkg-config.exe"
+
+          if (!(Test-Path $pkgConfig)) {
+            Write-Host "pkg-config.exe not found in $gstRoot\bin"
+            Write-Host "Listing bin folder:"
+            Get-ChildItem "$gstRoot\bin" -ErrorAction SilentlyContinue | Select-Object -First 120 Name | Format-Table -AutoSize
+            throw "pkg-config.exe not found"
           }
 
-          $env:PKG_CONFIG = "$gstRoot\bin\pkg-config.exe"
+          $glibPc = "$gstRoot\lib\pkgconfig\glib-2.0.pc"
+          $gthreadPc = "$gstRoot\lib\pkgconfig\gthread-2.0.pc"
+          $gstPc = "$gstRoot\lib\pkgconfig\gstreamer-1.0.pc"
+
+          if (!(Test-Path $glibPc)) {
+            Write-Host "glib-2.0.pc not found. Listing pkgconfig:"
+            Get-ChildItem "$gstRoot\lib\pkgconfig" -ErrorAction SilentlyContinue | Select-Object -First 120 Name | Format-Table -AutoSize
+            throw "glib-2.0.pc not found"
+          }
+
+          if (!(Test-Path $gthreadPc)) {
+            throw "gthread-2.0.pc not found"
+          }
+
+          if (!(Test-Path $gstPc)) {
+            throw "gstreamer-1.0.pc not found"
+          }
+
+          $env:PKG_CONFIG = $pkgConfig
           $env:PKG_CONFIG_PATH = "$gstRoot\lib\pkgconfig;$gstRoot\lib\gstreamer-1.0\pkgconfig"
           $env:PKG_CONFIG_LIBDIR = "$gstRoot\lib\pkgconfig;$gstRoot\lib\gstreamer-1.0\pkgconfig"
           $env:PATH = "$gstRoot\bin;$env:PATH"
 
-          & "$gstRoot\bin\pkg-config.exe" --modversion glib-2.0
-          & "$gstRoot\bin\pkg-config.exe" --modversion gthread-2.0
-          & "$gstRoot\bin\pkg-config.exe" --modversion gstreamer-1.0
+          Write-Host "Testing pkg-config..."
+          & $pkgConfig --modversion glib-2.0
+          & $pkgConfig --modversion gthread-2.0
+          & $pkgConfig --modversion gstreamer-1.0
 
           echo "GSTREAMER_1_0_ROOT_MSVC_X86_64=$gstRoot\" >> $env:GITHUB_ENV
           echo "GSTREAMER_ROOT_X86_64=$gstRoot\" >> $env:GITHUB_ENV
-          echo "PKG_CONFIG=$gstRoot\bin\pkg-config.exe" >> $env:GITHUB_ENV
+          echo "PKG_CONFIG=$pkgConfig" >> $env:GITHUB_ENV
           echo "PKG_CONFIG_PATH=$gstRoot\lib\pkgconfig;$gstRoot\lib\gstreamer-1.0\pkgconfig" >> $env:GITHUB_ENV
           echo "PKG_CONFIG_LIBDIR=$gstRoot\lib\pkgconfig;$gstRoot\lib\gstreamer-1.0\pkgconfig" >> $env:GITHUB_ENV
           echo "GSTREAMER_PLUGIN_PATH=$gstRoot\lib\gstreamer-1.0" >> $env:GITHUB_ENV
           echo "GST_PLUGIN_SYSTEM_PATH_1_0=$gstRoot\lib\gstreamer-1.0" >> $env:GITHUB_ENV
           echo "$gstRoot\bin" >> $env:GITHUB_PATH
 
-          Write-Host "GStreamer runtime + development installed successfully."
+          Write-Host "GStreamer runtime + development configured successfully."
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
