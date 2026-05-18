@@ -94,3 +94,10 @@ docs/.vitepress/dist/
 
 CMakeUserPresets.json
 cpm_modules
+
+# G-Navron local backup/temp files
+*.backup*
+*.bak
+*_backup_*
+*.backup_*
+*.zip

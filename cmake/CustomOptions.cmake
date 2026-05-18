@@ -60,7 +60,7 @@ option(QT_ANDROID_SIGN_AAB "Enable Signing AAB" OFF)
 option(QT_USE_TARGET_ANDROID_BUILD_DIR "Use Target Android Build Dir" OFF)
 
 # MacOS
-set(QGC_BUNDLE_ID "org.qgroundcontrol.QGroundControl" CACHE STRING "MacOS Bundle ID") # MACOS
+set(QGC_BUNDLE_ID "com.gremsy.gnavroncontrol" CACHE STRING "MacOS Bundle ID") # MACOS
 set(QGC_MACOS_ICON_PATH "${CMAKE_SOURCE_DIR}/deploy/macos" CACHE PATH "MacOS Icon Path") # MACOS
 
 # Linux

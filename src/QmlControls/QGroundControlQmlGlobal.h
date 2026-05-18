@@ -53,6 +53,7 @@ class QGroundControlQmlGlobal : public QObject
     Q_OBJECT
 
 public:
+    Q_INVOKABLE QString appendGremsyReadyCsvLine(const QString& csvLine);
     QGroundControlQmlGlobal(QObject *parent = nullptr);
     ~QGroundControlQmlGlobal();
 

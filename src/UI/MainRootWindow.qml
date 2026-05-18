@@ -27,7 +27,8 @@ import QGroundControl.UTMSP
 /// All properties defined here are visible to all QML pages.
 ApplicationWindow {
     id:             mainWindow
-    minimumWidth:   ScreenTools.isMobile ? ScreenTools.screenWidth  : Math.min(ScreenTools.defaultFontPixelWidth * 100, Screen.width)
+
+minimumWidth:   ScreenTools.isMobile ? ScreenTools.screenWidth  : Math.min(ScreenTools.defaultFontPixelWidth * 100, Screen.width)
     minimumHeight:  ScreenTools.isMobile ? ScreenTools.screenHeight : Math.min(ScreenTools.defaultFontPixelWidth * 50, Screen.height)
     visible:        true
 
@@ -344,7 +345,7 @@ ApplicationWindow {
                             }
                         }
 
-                        SubMenuButton {
+SubMenuButton {
                             id:                 setupButton
                             height:             toolSelectDialog._toolButtonHeight
                             Layout.fillWidth:   true
@@ -363,7 +364,7 @@ ApplicationWindow {
                             height:             toolSelectDialog._toolButtonHeight
                             Layout.fillWidth:   true
                             text:               qsTr("Application Settings")
-                            imageResource:      "/res/QGCLogoFull.svg"
+                            imageResource:      "/res/gremsy_qgc_logo.png"
                             imageColor:         "transparent"
                             visible:            !QGroundControl.corePlugin.options.combineSettingsAndSetup
                             onClicked: {

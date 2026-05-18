@@ -59,6 +59,10 @@
 
 #include <QtCore/QSettings>
 #include <QtCore/QLineF>
+#include <QFile>
+#include <QDir>
+#include <QStandardPaths>
+#include <QTextStream>
 
 QGeoCoordinate QGroundControlQmlGlobal::_coord = QGeoCoordinate(0.0,0.0);
 double QGroundControlQmlGlobal::_zoom = 2;
@@ -407,3 +411,39 @@ void QGroundControlQmlGlobal::clearDeleteAllSettingsNextBoot()
 {
     qgcApp()->clearDeleteAllSettingsNextBoot();
 }
+
+
+QString QGroundControlQmlGlobal::appendGremsyReadyCsvLine(const QString& csvLine)
+{
+    QString documentsPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    if (documentsPath.isEmpty()) {
+        return QStringLiteral("CSV save failed: Documents path not found");
+    }
+
+    QDir dir(documentsPath);
+    if (!dir.exists(QStringLiteral("GremsyReady"))) {
+        if (!dir.mkdir(QStringLiteral("GremsyReady"))) {
+            return QStringLiteral("CSV save failed: cannot create GremsyReady folder");
+        }
+    }
+
+    const QString filePath = dir.filePath(QStringLiteral("GremsyReady/gremsy_ready_log.csv"));
+    const bool fileExists = QFile::exists(filePath);
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        return QStringLiteral("CSV save failed: cannot open ") + filePath;
+    }
+
+    QTextStream out(&file);
+
+    if (!fileExists || file.size() == 0) {
+        out << "timestamp,tester,test_date,vehicle_type,vtol_test_no,result,lift_throttle,motor_duration,push_pwm,servo_delta,command_gap,note\n";
+    }
+
+    out << csvLine << "\n";
+    file.close();
+
+    return QStringLiteral("CSV saved: ") + filePath;
+}
+

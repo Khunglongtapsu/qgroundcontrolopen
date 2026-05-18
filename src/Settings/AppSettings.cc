@@ -35,12 +35,14 @@ QList<QLocale::Language> AppSettings::_rgReleaseLanguages = {
 
 // Partial languages are 40%+ complete
 QList<QLocale::Language> AppSettings::_rgPartialLanguages = {
-    QLocale::Ukrainian,
+    QLocale::Ukrainian,    QLocale::Vietnamese,
+
 };
 
 AppSettings::LanguageInfo_t AppSettings::_rgLanguageInfo[] = {
     { QLocale::AnyLanguage,     "System" },                     // Must be first
     { QLocale::Azerbaijani,     "Azerbaijani (Azerbaijani)" },
+    { QLocale::Vietnamese,         "Tiếng Việt (Vietnamese)" },
     { QLocale::Bulgarian,       "български (Bulgarian)" },
     { QLocale::Chinese,         "中文 (Chinese)" },
     { QLocale::Dutch,           "Nederlands (Dutch)" },

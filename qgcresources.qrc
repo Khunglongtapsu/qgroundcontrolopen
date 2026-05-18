@@ -38,6 +38,7 @@
         <file alias="Play.svg">resources/Play.svg</file>
         <file alias="PowerButton.svg">resources/PowerButton.svg</file>
         <file alias="QGCLogoBlack.svg">resources/QGCLogoBlack.svg</file>
+        <file alias="gremsy_qgc_logo.png">resources/custom/gremsy_qgc_logo.png</file>
         <file alias="QGCLogoFull.svg">resources/QGCLogoFull.svg</file>
         <file alias="QGCLogoWhite.svg">resources/QGCLogoWhite.svg</file>
         <file alias="QGCLogoArrow.svg">resources/QGCLogoArrow.svg</file>
