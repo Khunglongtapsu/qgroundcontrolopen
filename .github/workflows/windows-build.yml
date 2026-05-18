@@ -32,60 +32,46 @@ jobs:
       - name: Install GStreamer runtime and development
         shell: powershell
         run: |
-          $version = "$env:GSTREAMER_VERSION"
-          $baseUrl = "https://gstreamer.freedesktop.org/data/pkg/windows/$version/msvc"
+          Write-Host "Installing GStreamer using Chocolatey..."
 
-          $runtimeName = "gstreamer-1.0-msvc-x86_64-$version.msi"
-          $develName   = "gstreamer-1.0-devel-msvc-x86_64-$version.msi"
+          choco install gstreamer -y --no-progress
 
-          $runtimeUrl = "$baseUrl/$runtimeName"
-          $develUrl   = "$baseUrl/$develName"
+          $candidates = @(
+            "C:\gstreamer\1.0\msvc_x86_64",
+            "C:\gstreamer\1.0\x86_64",
+            "C:\Program Files\gstreamer\1.0\msvc_x86_64",
+            "C:\Program Files\gstreamer\1.0\x86_64"
+          )
 
-          $runtimePath = "$env:RUNNER_TEMP\$runtimeName"
-          $develPath   = "$env:RUNNER_TEMP\$develName"
+          $gstRoot = $null
 
-          Write-Host "Downloading GStreamer runtime: $runtimeUrl"
-          curl.exe -L --fail --retry 5 --retry-delay 5 --connect-timeout 30 `
-            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" `
-            -o "$runtimePath" "$runtimeUrl"
-
-          if (!(Test-Path $runtimePath)) {
-            throw "Failed to download GStreamer runtime MSI"
+          foreach ($c in $candidates) {
+            if (Test-Path "$c\bin") {
+              $gstRoot = $c
+              break
+            }
           }
 
-          Write-Host "Downloading GStreamer development package: $develUrl"
-          curl.exe -L --fail --retry 5 --retry-delay 5 --connect-timeout 30 `
-            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" `
-            -o "$develPath" "$develUrl"
-
-          if (!(Test-Path $develPath)) {
-            throw "Failed to download GStreamer development MSI"
+          if ($null -eq $gstRoot) {
+            Write-Host "Searching for GStreamer installation..."
+            Get-ChildItem -Path "C:\" -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*gstreamer*" }
+            throw "GStreamer root not found after Chocolatey install"
           }
 
-          Write-Host "Installing GStreamer runtime..."
-          Start-Process msiexec.exe -Wait -ArgumentList @('/i', $runtimePath, '/qn', '/norestart')
+          Write-Host "GStreamer root: $gstRoot"
 
-          Write-Host "Installing GStreamer development package..."
-          Start-Process msiexec.exe -Wait -ArgumentList @('/i', $develPath, '/qn', '/norestart')
-
-          $gstRoot = "C:\gstreamer\1.0\msvc_x86_64"
-
-          if (!(Test-Path "$gstRoot\bin\pkg-config.exe")) {
-            throw "pkg-config.exe not found at $gstRoot\bin\pkg-config.exe"
-          }
-
-          if (!(Test-Path "$gstRoot\lib\gstreamer-1.0")) {
-            throw "GStreamer plugins folder not found at $gstRoot\lib\gstreamer-1.0"
+          if (!(Test-Path "$gstRoot\bin")) {
+            throw "GStreamer bin folder not found"
           }
 
           echo "GSTREAMER_1_0_ROOT_MSVC_X86_64=$gstRoot\" >> $env:GITHUB_ENV
           echo "PKG_CONFIG=$gstRoot\bin\pkg-config.exe" >> $env:GITHUB_ENV
-          echo "PKG_CONFIG_PATH=$gstRoot\lib\pkgconfig" >> $env:GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$gstRoot\lib\pkgconfig;$gstRoot\lib\gstreamer-1.0\pkgconfig" >> $env:GITHUB_ENV
           echo "GSTREAMER_PLUGIN_PATH=$gstRoot\lib\gstreamer-1.0" >> $env:GITHUB_ENV
           echo "GST_PLUGIN_SYSTEM_PATH_1_0=$gstRoot\lib\gstreamer-1.0" >> $env:GITHUB_ENV
           echo "$gstRoot\bin" >> $env:GITHUB_PATH
 
-          Write-Host "GStreamer installed successfully at $gstRoot"
+          Write-Host "GStreamer installed and environment configured."
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
