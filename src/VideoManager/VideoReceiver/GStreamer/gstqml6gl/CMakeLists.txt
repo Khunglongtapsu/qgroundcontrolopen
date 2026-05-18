@@ -201,7 +201,11 @@ if(EXISTS "${QGC_GST_QT6_PLUGIN_PATH}/resources.qrc")
         )
 
         if(EXISTS "${QGC_GST_QT6_PLUGIN_PATH}/RGBA_gles.frag")
-            file(COPY_FILE "${CMAKE_CURRENT_BINARY_DIR}/.qsb/RGBA.frag.qsb" "${CMAKE_CURRENT_BINARY_DIR}/.qsb/RGBA.frag.qsb.external")
+            if(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/.qsb/RGBA.frag.qsb")
+    file(COPY_FILE "${CMAKE_CURRENT_BINARY_DIR}/.qsb/RGBA.frag.qsb" "${CMAKE_CURRENT_BINARY_DIR}/.qsb/RGBA.frag.qsb.external")
+else()
+    message(WARNING "Gremsy/QGC Windows build: skip missing generated qsb shader: "${CMAKE_CURRENT_BINARY_DIR}/.qsb/RGBA.frag.qsb"")
+endif()
             qt6_add_shaders(gstqml6gl "gstqml6gl_shaders1"
                 PREFIX "/org/freedesktop/gstreamer/qml6"
                 OUTPUT_TARGETS gstqml6gl_shaders1
