@@ -26,7 +26,7 @@ jobs:
         with:
           version: ${{ env.QT_VERSION }}
           arch: ${{ env.QT_ARCH }}
-          modules: qt5compat qtcharts qtlocation qtpositioning qtserialport qtmultimedia qtshadertools qtsensors qtspeech
+          modules: qt5compat qtcharts qtlocation qtpositioning qtserialport qtmultimedia qtshadertools qtsensors qtspeech qtconnectivity
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
