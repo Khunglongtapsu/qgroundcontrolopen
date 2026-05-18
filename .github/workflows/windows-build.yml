@@ -37,7 +37,7 @@ jobs:
       - name: Configure CMake
         shell: cmd
         run: |
-          cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DQGC_ENABLE_BLUETOOTH=OFF
+          cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DQGC_ENABLE_VIDEO_STREAMING=OFF -DQGC_ENABLE_QT_VIDEOSTREAMING=OFF -DQGC_ENABLE_GST_VIDEOSTREAMING=OFF -DQGC_ENABLE_BLUETOOTH=OFF
 
       - name: Build
         shell: cmd
