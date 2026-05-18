@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     env:
       QT_VERSION: 6.6.3
@@ -26,7 +26,7 @@ jobs:
         with:
           version: ${{ env.QT_VERSION }}
           arch: ${{ env.QT_ARCH }}
-          modules: qt5compat qtcharts qtlocation qtpositioning qtserialport qtmultimedia qtshadertools
+          modules: qt5compat qtcharts qtlocation qtpositioning qtserialport qtmultimedia qtshadertools qtsensors
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
