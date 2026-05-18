@@ -165,17 +165,39 @@ jobs:
           $patched = 0
 
           foreach ($line in $lines) {
-            if ($line -match '^build\s+(.+?\.qsb\.external)\s*:(.*)$') {
-              $target = $matches[1]
-              $rest = $matches[2]
+            if (($line -match '^build\s+') -and ($line -match '\.qsb\.external')) {
+              $parts = $line -split ':', 2
 
-              $tokens = $rest -split '\s+' | Where-Object {
-                $_ -and $_ -ne $target
+              if ($parts.Count -eq 2) {
+                $lhs = $parts[0]
+                $rhs = $parts[1].Trim()
+
+                $tokens = $rhs -split '\s+'
+
+                if ($tokens.Count -gt 0) {
+                  $rule = $tokens[0]
+                  $deps = @()
+
+                  if ($tokens.Count -gt 1) {
+                    $deps = $tokens[1..($tokens.Count - 1)] | Where-Object {
+                      $_ -and ($_ -notmatch '\.qsb\.external$')
+                    }
+                  }
+
+                  if ($deps.Count -gt 0) {
+                    $newLine = "${lhs}: $rule " + ($deps -join " ")
+                  } else {
+                    $newLine = "${lhs}: $rule"
+                  }
+
+                  $out.Add($newLine)
+                  $patched++
+                } else {
+                  $out.Add($line)
+                }
+              } else {
+                $out.Add($line)
               }
-
-              $newLine = "build ${target}: " + ($tokens -join " ")
-              $out.Add($newLine)
-              $patched++
             } else {
               $out.Add($line)
             }
@@ -183,9 +205,9 @@ jobs:
 
           $out | Set-Content -Path $ninjaFile -Encoding ASCII
 
-          Write-Host "Patched qsb.external self dependency lines: $patched"
-
-          Select-String -Path $ninjaFile -Pattern '\.qsb\.external' | Select-Object -First 20
+          Write-Host "Patched qsb.external build lines: $patched"
+          Write-Host "Checking remaining qsb.external references:"
+          Select-String -Path $ninjaFile -Pattern 'qsb\.external' | Select-Object -First 30
 
       - name: Build
         shell: cmd
