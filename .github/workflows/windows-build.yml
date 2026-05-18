@@ -27,7 +27,7 @@ jobs:
         with:
           version: ${{ env.QT_VERSION }}
           arch: ${{ env.QT_ARCH }}
-          modules: qt5compat qtcharts qtlocation qtpositioning qtserialport qtmultimedia qtshadertools qtsensors qtspeech qtconnectivity
+          modules: qt5compat qtcharts qtlocation qtpositioning qtserialport qtmultimedia qtshadertools qtsensors qtspeech qtconnectivity qtquick3d
 
       - name: Install GStreamer runtime and development
         shell: powershell
