@@ -149,6 +149,44 @@ jobs:
         run: |
           cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DQGC_ENABLE_BLUETOOTH=OFF -DQGC_ENABLE_UVC=OFF -DQGC_VIEWER3D=OFF -DQGC_ENABLE_QT_VIDEOSTREAMING=OFF
 
+      - name: Patch GStreamer qsb external Ninja cycle
+        shell: powershell
+        run: |
+          $ninjaFile = "build/build.ninja"
+
+          if (!(Test-Path $ninjaFile)) {
+            throw "build.ninja not found"
+          }
+
+          Write-Host "Patching qsb.external self dependency in build.ninja..."
+
+          $lines = Get-Content $ninjaFile
+          $out = New-Object System.Collections.Generic.List[string]
+          $patched = 0
+
+          foreach ($line in $lines) {
+            if ($line -match '^build\s+(.+?\.qsb\.external)\s*:(.*)$') {
+              $target = $matches[1]
+              $rest = $matches[2]
+
+              $tokens = $rest -split '\s+' | Where-Object {
+                $_ -and $_ -ne $target
+              }
+
+              $newLine = "build ${target}: " + ($tokens -join " ")
+              $out.Add($newLine)
+              $patched++
+            } else {
+              $out.Add($line)
+            }
+          }
+
+          $out | Set-Content -Path $ninjaFile -Encoding ASCII
+
+          Write-Host "Patched qsb.external self dependency lines: $patched"
+
+          Select-String -Path $ninjaFile -Pattern '\.qsb\.external' | Select-Object -First 20
+
       - name: Build
         shell: cmd
         run: |
