@@ -109,7 +109,8 @@ void TerrainAtCoordinateBatchManager::_batchFailed()
 
     for (const SentRequestInfo_t &sentRequestInfo: _sentRequests) {
         if (!sentRequestInfo.queryObjectDestroyed) {
-            (void) disconnect(sentRequestInfo.terrainAtCoordinateQuery, &TerrainAtCoordinateQuery::destroyed, this, &TerrainAtCoordinateBatchManager::_queryObjectDestroyed);
+// GREMSY SAFE FIX: avoid unsafe disconnect on terrain query object that may already be destroyed
+//             (void) disconnect(sentRequestInfo.terrainAtCoordinateQuery, &TerrainAtCoordinateQuery::destroyed, this, &TerrainAtCoordinateBatchManager::_queryObjectDestroyed);
             sentRequestInfo.terrainAtCoordinateQuery->signalTerrainData(false, noHeights);
         }
     }
@@ -172,7 +173,8 @@ void TerrainAtCoordinateBatchManager::_coordinateHeights(bool success, const QLi
         }
 
         qCDebug(TerrainQueryVerboseLog) << Q_FUNC_INFO << "returned TerrainCoordinateQuery:count" << sentRequestInfo.terrainAtCoordinateQuery << sentRequestInfo.cCoord;
-        (void) disconnect(sentRequestInfo.terrainAtCoordinateQuery, &TerrainAtCoordinateQuery::destroyed, this, &TerrainAtCoordinateBatchManager::_queryObjectDestroyed);
+// GREMSY SAFE FIX: avoid unsafe disconnect on terrain query object that may already be destroyed
+//         (void) disconnect(sentRequestInfo.terrainAtCoordinateQuery, &TerrainAtCoordinateQuery::destroyed, this, &TerrainAtCoordinateBatchManager::_queryObjectDestroyed);
         const QList<double> requestAltitudes = heights.mid(currentIndex, sentRequestInfo.cCoord);
         sentRequestInfo.terrainAtCoordinateQuery->signalTerrainData(true, requestAltitudes);
         currentIndex += sentRequestInfo.cCoord;

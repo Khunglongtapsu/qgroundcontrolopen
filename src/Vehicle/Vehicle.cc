@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 #include "Vehicle.h"
+#include "Fact.h"
 #include "Actuators.h"
 #include "ADSBVehicleManager.h"
 #include "AudioOutput.h"
@@ -453,6 +454,45 @@ void Vehicle::resetCounters()
 
 void Vehicle::_mavlinkMessageReceived(LinkInterface* link, mavlink_message_t message)
 {
+
+    // GREMSY SERVO_OUTPUT_RAW MONITOR
+    if (message.msgid == MAVLINK_MSG_ID_SERVO_OUTPUT_RAW) {
+        mavlink_servo_output_raw_t servoOutputRaw;
+        mavlink_msg_servo_output_raw_decode(&message, &servoOutputRaw);
+
+        bool gremsyChanged = false;
+
+        int newValues[16] = {
+            servoOutputRaw.servo1_raw,
+            servoOutputRaw.servo2_raw,
+            servoOutputRaw.servo3_raw,
+            servoOutputRaw.servo4_raw,
+            servoOutputRaw.servo5_raw,
+            servoOutputRaw.servo6_raw,
+            servoOutputRaw.servo7_raw,
+            servoOutputRaw.servo8_raw,
+            servoOutputRaw.servo9_raw,
+            servoOutputRaw.servo10_raw,
+            servoOutputRaw.servo11_raw,
+            servoOutputRaw.servo12_raw,
+            servoOutputRaw.servo13_raw,
+            servoOutputRaw.servo14_raw,
+            servoOutputRaw.servo15_raw,
+            servoOutputRaw.servo16_raw
+        };
+
+        for (int i = 0; i < 16; i++) {
+            if (_gremsyServoOutputRaw[i] != newValues[i]) {
+                _gremsyServoOutputRaw[i] = newValues[i];
+                gremsyChanged = true;
+            }
+        }
+
+        if (gremsyChanged) {
+            emit gremsyServoOutputRawChanged();
+        }
+    }
+
     // If the link is already running at Mavlink V2 set our max proto version to it.
     unsigned mavlinkVersion = MAVLinkProtocol::instance()->getCurrentVersion();
     if (_maxProtoVersion != mavlinkVersion && mavlinkVersion >= 200) {
@@ -4191,3 +4231,49 @@ MAVLinkLogManager *Vehicle::mavlinkLogManager() const
 }
 
 /*---------------------------------------------------------------------------*/
+
+
+// GREMSY READY PARAMETER ACCESS
+QVariant Vehicle::gremsyGetParam(const QString& paramName)
+{
+    if (!_parameterManager) {
+        return QVariant();
+    }
+
+    const int compIds[] = { -1, MAV_COMP_ID_AUTOPILOT1, 0 };
+
+    for (int compId : compIds) {
+        if (_parameterManager->parameterExists(compId, paramName)) {
+            Fact* fact = _parameterManager->getParameter(compId, paramName);
+            if (fact) {
+                return fact->rawValue();
+            }
+        }
+    }
+
+    return QVariant();
+}
+
+bool Vehicle::gremsySetParam(const QString& paramName, const QVariant& value)
+{
+    if (!_parameterManager) {
+        qWarning() << "GREMSY PARAM SET FAIL: no parameter manager" << paramName;
+        return false;
+    }
+
+    const int compIds[] = { -1, MAV_COMP_ID_AUTOPILOT1, 0 };
+
+    for (int compId : compIds) {
+        if (_parameterManager->parameterExists(compId, paramName)) {
+            Fact* fact = _parameterManager->getParameter(compId, paramName);
+            if (fact) {
+                fact->setRawValue(value);
+                qWarning() << "GREMSY PARAM SET REQUEST:" << paramName << value;
+                return true;
+            }
+        }
+    }
+
+    qWarning() << "GREMSY PARAM SET FAIL: parameter not found" << paramName;
+    return false;
+}

@@ -11,6 +11,15 @@
 
 QString BingMapProvider::_getURL(int x, int y, int zoom) const
 {
-    const QString key = _tileXYToQuadKey(x, y, zoom);
+    
+    const int kGremsyBingMaxZoom = 19;
+    if (zoom > kGremsyBingMaxZoom) {
+        const int shift = zoom - kGremsyBingMaxZoom;
+        x = x >> shift;
+        y = y >> shift;
+        zoom = kGremsyBingMaxZoom;
+    }
+
+const QString key = _tileXYToQuadKey(x, y, zoom);
     return _mapUrl.arg(_getServerNum(x, y, 4)).arg(_mapTypeId, key, _imageFormat, _versionBingMaps, _language);
 }

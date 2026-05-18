@@ -10,6 +10,7 @@
 #pragma once
 
 #include <QtCore/QElapsedTimer>
+#include <QVariant>
 #include <QtCore/QObject>
 #include <QtCore/QSharedPointer>
 #include <QtCore/QTime>
@@ -90,6 +91,16 @@ Q_DECLARE_LOGGING_CATEGORY(VehicleLog)
 class Vehicle : public VehicleFactGroup
 {
     Q_OBJECT
+
+    Q_PROPERTY(int gremsyServo1Raw READ gremsyServo1Raw NOTIFY gremsyServoOutputRawChanged)
+    Q_PROPERTY(int gremsyServo2Raw READ gremsyServo2Raw NOTIFY gremsyServoOutputRawChanged)
+    Q_PROPERTY(int gremsyServo3Raw READ gremsyServo3Raw NOTIFY gremsyServoOutputRawChanged)
+    Q_PROPERTY(int gremsyServo4Raw READ gremsyServo4Raw NOTIFY gremsyServoOutputRawChanged)
+    Q_PROPERTY(int gremsyServo5Raw READ gremsyServo5Raw NOTIFY gremsyServoOutputRawChanged)
+    Q_PROPERTY(int gremsyServo6Raw READ gremsyServo6Raw NOTIFY gremsyServoOutputRawChanged)
+    Q_PROPERTY(int gremsyServo7Raw READ gremsyServo7Raw NOTIFY gremsyServoOutputRawChanged)
+    Q_PROPERTY(int gremsyServo8Raw READ gremsyServo8Raw NOTIFY gremsyServoOutputRawChanged)
+    Q_PROPERTY(int gremsyServo9Raw READ gremsyServo9Raw NOTIFY gremsyServoOutputRawChanged)
     Q_MOC_INCLUDE("AutoPilotPlugin.h")
     Q_MOC_INCLUDE("TrajectoryPoints.h")
     Q_MOC_INCLUDE("ParameterManager.h")
@@ -108,6 +119,19 @@ class Vehicle : public VehicleFactGroup
     friend class GimbalController;                  // Allow GimbalController to call _addFactGroup
 
 public:
+    Q_INVOKABLE QVariant gremsyGetParam(const QString& paramName);
+    Q_INVOKABLE bool gremsySetParam(const QString& paramName, const QVariant& value);
+
+    int gremsyServo1Raw() const { return _gremsyServoOutputRaw[0]; }
+    int gremsyServo2Raw() const { return _gremsyServoOutputRaw[1]; }
+    int gremsyServo3Raw() const { return _gremsyServoOutputRaw[2]; }
+    int gremsyServo4Raw() const { return _gremsyServoOutputRaw[3]; }
+    int gremsyServo5Raw() const { return _gremsyServoOutputRaw[4]; }
+    int gremsyServo6Raw() const { return _gremsyServoOutputRaw[5]; }
+    int gremsyServo7Raw() const { return _gremsyServoOutputRaw[6]; }
+    int gremsyServo8Raw() const { return _gremsyServoOutputRaw[7]; }
+    int gremsyServo9Raw() const { return _gremsyServoOutputRaw[8]; }
+
     Vehicle(LinkInterface*          link,
             int                     vehicleId,
             int                     defaultComponentId,
@@ -629,7 +653,7 @@ public:
     ///     @param command MAV_CMD to send
     ///     @param showError true: Display error to user if command failed, false:  no error shown
     /// Signals: mavCommandResult on success or failure
-    void sendMavCommand(int compId, MAV_CMD command, bool showError, float param1 = 0.0f, float param2 = 0.0f, float param3 = 0.0f, float param4 = 0.0f, float param5 = 0.0f, float param6 = 0.0f, float param7 = 0.0f);
+    Q_INVOKABLE void sendMavCommand(int compId, MAV_CMD command, bool showError, float param1 = 0.0f, float param2 = 0.0f, float param3 = 0.0f, float param4 = 0.0f, float param5 = 0.0f, float param6 = 0.0f, float param7 = 0.0f);
     void sendMavCommandDelayed(int compId, MAV_CMD command, bool showError, int milliseconds, float param1 = 0.0f, float param2 = 0.0f, float param3 = 0.0f, float param4 = 0.0f, float param5 = 0.0f, float param6 = 0.0f, float param7 = 0.0f);
     void sendMavCommandInt(int compId, MAV_CMD command, MAV_FRAME frame, bool showError, float param1, float param2, float param3, float param4, double param5, double param6, float param7);
 
@@ -1394,5 +1418,13 @@ private:
     MAVLinkLogManager *_mavlinkLogManager = nullptr;
 
 /*---------------------------------------------------------------------------*/
+
+signals:
+    void gremsyServoOutputRawChanged();
+
+
+private:
+    int _gremsyServoOutputRaw[16] {};
+
 };
 Q_DECLARE_METATYPE(Vehicle::MavCmdResultFailureCode_t)

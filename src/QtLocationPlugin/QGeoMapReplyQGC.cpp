@@ -109,7 +109,11 @@ void QGeoTiledMapReplyQGC::_networkReplyFinished()
     Q_CHECK_PTR(mapProvider);
 
     if (mapProvider->isBingProvider() && (image == _bingNoTileImage)) {
-        setError(QGeoTiledMapReply::CommunicationError, tr("Bing Tile Above Zoom Level"));
+        // GREMSY MAP FALLBACK: return a 1x1 transparent PNG for invalid/over-zoom tiles instead of propagating a hard tile error.
+        setMapImageData(QByteArray::fromBase64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="));
+        setMapImageFormat(QStringLiteral("png"));
+        setFinished(true);
+        return;
         return;
     }
 
