@@ -350,54 +350,96 @@ jobs:
       - name: Deploy Qt runtime and package
         shell: powershell
         run: |
-          $exe = Get-ChildItem -Path build -Filter QGroundControl.exe -Recurse | Select-Object -First 1
+          Write-Host "Creating clean Windows package using windeployqt..."
+
+          $packageDir = "G-Navron-Control-Windows"
+
+          if (Test-Path $packageDir) {
+            Remove-Item $packageDir -Recurse -Force
+          }
+
+          New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+
+          Write-Host "Searching executable..."
+
+          $exe = Get-ChildItem -Path build -Recurse -Filter "*.exe" |
+            Where-Object {
+              $_.Name -match "QGroundControl|G-Navron|GNavron"
+            } |
+            Sort-Object Length -Descending |
+            Select-Object -First 1
+
           if ($null -eq $exe) {
-            throw "QGroundControl.exe not found"
+            Write-Host "All exe files found:"
+            Get-ChildItem -Path build -Recurse -Filter "*.exe" | Select-Object FullName
+            throw "Cannot find built executable."
           }
 
-          $releaseDir = $exe.Directory.FullName
-          Write-Host "Release dir: $releaseDir"
+          Write-Host "Found exe: $($exe.FullName)"
 
-          windeployqt --release --qmldir "$env:GITHUB_WORKSPACE\src" "$($exe.FullName)"
+          $targetExe = Join-Path $packageDir "G-Navron Control.exe"
+          Copy-Item $exe.FullName $targetExe -Force
 
-          Rename-Item "$($exe.FullName)" "G-Navron Control.exe"
+          $windeployqt = Get-Command windeployqt.exe -ErrorAction SilentlyContinue
 
-          $gstSrc = "C:\gstreamer\1.0\msvc_x86_64"
-          $gstDst = Join-Path $releaseDir "gstreamer\1.0\msvc_x86_64"
+          if ($null -eq $windeployqt) {
+            Write-Host "windeployqt.exe not found in PATH. Searching Qt folder..."
+            $windeployqtFile = Get-ChildItem -Path "D:\a\qgroundcontrolopen\Qt" -Filter "windeployqt.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
 
-          New-Item -ItemType Directory -Force -Path $gstDst | Out-Null
+            if ($null -eq $windeployqtFile) {
+              $windeployqtFile = Get-ChildItem -Path "D:\a" -Filter "windeployqt.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            }
 
-          Write-Host "Copying GStreamer runtime into package..."
+            if ($null -eq $windeployqtFile) {
+              throw "windeployqt.exe not found."
+            }
 
-          robocopy "$gstSrc\bin" "$gstDst\bin" /E
-          if ($LASTEXITCODE -le 7) { $global:LASTEXITCODE = 0 } else { exit $LASTEXITCODE }
-
-          robocopy "$gstSrc\lib\gstreamer-1.0" "$gstDst\lib\gstreamer-1.0" /E
-          if ($LASTEXITCODE -le 7) { $global:LASTEXITCODE = 0 } else { exit $LASTEXITCODE }
-
-          if (Test-Path "$gstSrc\lib\gio") {
-            robocopy "$gstSrc\lib\gio" "$gstDst\lib\gio" /E
-            if ($LASTEXITCODE -le 7) { $global:LASTEXITCODE = 0 } else { exit $LASTEXITCODE }
+            $windeployqtPath = $windeployqtFile.FullName
+          } else {
+            $windeployqtPath = $windeployqt.Source
           }
 
-          if (Test-Path "$gstSrc\share") {
-            robocopy "$gstSrc\share" "$gstDst\share" /E
-            if ($LASTEXITCODE -le 7) { $global:LASTEXITCODE = 0 } else { exit $LASTEXITCODE }
+          Write-Host "Using windeployqt: $windeployqtPath"
+
+          & $windeployqtPath `
+            --release `
+            --compiler-runtime `
+            --qmldir "$env:GITHUB_WORKSPACE\src" `
+            --dir $packageDir `
+            $targetExe
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "windeployqt failed."
           }
 
-          $launcherPath = Join-Path $releaseDir "Run G-Navron Control.bat"
+          Write-Host "Creating launcher bat..."
 
-          @"
-          @echo off
-          set APPDIR=%~dp0
-          set GSTREAMER_1_0_ROOT_MSVC_X86_64=%APPDIR%gstreamer\1.0\msvc_x86_64\
-          set PATH=%GSTREAMER_1_0_ROOT_MSVC_X86_64%bin;%PATH%
-          set GST_PLUGIN_PATH=%GSTREAMER_1_0_ROOT_MSVC_X86_64%lib\gstreamer-1.0
-          set GST_PLUGIN_SYSTEM_PATH_1_0=%GSTREAMER_1_0_ROOT_MSVC_X86_64%lib\gstreamer-1.0
-          start "" "%APPDIR%G-Navron Control.exe"
-          "@ | Set-Content -Encoding ASCII $launcherPath
+          $bat = @'
+@echo off
+cd /d "%~dp0"
 
-          Compress-Archive -Path "$releaseDir\*" -DestinationPath "$env:GITHUB_WORKSPACE\G-Navron-Control-Windows.zip" -Force
+echo Starting G-Navron Control...
+echo App folder: %CD%
+
+set QT_OPENGL=software
+set QT_QUICK_BACKEND=software
+set QSG_RHI_BACKEND=software
+
+"G-Navron Control.exe" > gnavron_launch_log.txt 2>&1
+
+echo.
+echo App closed. Exit code: %ERRORLEVEL%
+echo Log saved to:
+echo %CD%\gnavron_launch_log.txt
+pause
+'@
+
+          Set-Content -Path (Join-Path $packageDir "Run G-Navron Control.bat") -Value $bat -Encoding ASCII
+
+          Write-Host "Package content:"
+          Get-ChildItem $packageDir | Select-Object Name, Length
+
+          Compress-Archive -Path "$packageDir\*" -DestinationPath "G-Navron-Control-Windows.zip" -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
