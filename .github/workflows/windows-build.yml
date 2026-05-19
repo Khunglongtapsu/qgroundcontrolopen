@@ -350,7 +350,7 @@ jobs:
       - name: Deploy Qt runtime and package
         shell: powershell
         run: |
-          Write-Host "Creating clean Windows package using windeployqt..."
+          Write-Host "Creating clean Windows package using original exe name and windeployqt..."
 
           $packageDir = "G-Navron-Control-Windows"
 
@@ -376,8 +376,9 @@ jobs:
           }
 
           Write-Host "Found exe: $($exe.FullName)"
+          Write-Host "Original exe name: $($exe.Name)"
 
-          $targetExe = Join-Path $packageDir "G-Navron Control.exe"
+          $targetExe = Join-Path $packageDir $exe.Name
           Copy-Item $exe.FullName $targetExe -Force
 
           $windeployqt = Get-Command windeployqt.exe -ErrorAction SilentlyContinue
@@ -416,14 +417,25 @@ jobs:
             "@echo off",
             "cd /d ""%~dp0""",
             "",
-            "echo Starting G-Navron Control...",
+            "echo Starting G-Navron Control using original exe name...",
             "echo App folder: %CD%",
             "",
+            "set QT_PLUGIN_PATH=%CD%",
+            "set QML2_IMPORT_PATH=%CD%\qml",
+            "set QT_QPA_PLATFORM_PLUGIN_PATH=%CD%\platforms",
             "set QT_OPENGL=software",
             "set QT_QUICK_BACKEND=software",
             "set QSG_RHI_BACKEND=software",
             "",
-            """G-Navron Control.exe"" > gnavron_launch_log.txt 2>&1",
+            "echo.",
+            "echo Checking files...",
+            "if not exist ""$($exe.Name)"" echo MISSING: $($exe.Name)",
+            "if not exist ""Qt6Core.dll"" echo MISSING: Qt6Core.dll",
+            "if not exist ""platforms\qwindows.dll"" echo MISSING: platforms\qwindows.dll",
+            "",
+            "echo.",
+            "echo Launching app...",
+            """$($exe.Name)"" > gnavron_launch_log.txt 2>&1",
             "",
             "echo.",
             "echo App closed. Exit code: %ERRORLEVEL%",
