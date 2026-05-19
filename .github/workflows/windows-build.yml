@@ -384,11 +384,9 @@ jobs:
 
           if ($null -eq $windeployqt) {
             Write-Host "windeployqt.exe not found in PATH. Searching Qt folder..."
-            $windeployqtFile = Get-ChildItem -Path "D:\a\qgroundcontrolopen\Qt" -Filter "windeployqt.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
 
-            if ($null -eq $windeployqtFile) {
-              $windeployqtFile = Get-ChildItem -Path "D:\a" -Filter "windeployqt.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-            }
+            $windeployqtFile = Get-ChildItem -Path "D:\a" -Filter "windeployqt.exe" -Recurse -ErrorAction SilentlyContinue |
+              Select-Object -First 1
 
             if ($null -eq $windeployqtFile) {
               throw "windeployqt.exe not found."
@@ -414,27 +412,27 @@ jobs:
 
           Write-Host "Creating launcher bat..."
 
-          $bat = @'
-@echo off
-cd /d "%~dp0"
+          $batLines = @(
+            "@echo off",
+            "cd /d ""%~dp0""",
+            "",
+            "echo Starting G-Navron Control...",
+            "echo App folder: %CD%",
+            "",
+            "set QT_OPENGL=software",
+            "set QT_QUICK_BACKEND=software",
+            "set QSG_RHI_BACKEND=software",
+            "",
+            """G-Navron Control.exe"" > gnavron_launch_log.txt 2>&1",
+            "",
+            "echo.",
+            "echo App closed. Exit code: %ERRORLEVEL%",
+            "echo Log saved to:",
+            "echo %CD%\gnavron_launch_log.txt",
+            "pause"
+          )
 
-echo Starting G-Navron Control...
-echo App folder: %CD%
-
-set QT_OPENGL=software
-set QT_QUICK_BACKEND=software
-set QSG_RHI_BACKEND=software
-
-"G-Navron Control.exe" > gnavron_launch_log.txt 2>&1
-
-echo.
-echo App closed. Exit code: %ERRORLEVEL%
-echo Log saved to:
-echo %CD%\gnavron_launch_log.txt
-pause
-'@
-
-          Set-Content -Path (Join-Path $packageDir "Run G-Navron Control.bat") -Value $bat -Encoding ASCII
+          Set-Content -Path (Join-Path $packageDir "Run G-Navron Control.bat") -Value $batLines -Encoding ASCII
 
           Write-Host "Package content:"
           Get-ChildItem $packageDir | Select-Object Name, Length
