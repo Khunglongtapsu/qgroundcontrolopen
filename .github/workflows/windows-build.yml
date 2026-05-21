@@ -181,7 +181,7 @@ jobs:
       - name: Configure CMake
         shell: cmd
         run: |
-          cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DQGC_ENABLE_BLUETOOTH=OFF -DQGC_ENABLE_UVC=OFF -DQGC_VIEWER3D=OFF -DQGC_ENABLE_QT_VIDEOSTREAMING=OFF -DQGC_ENABLE_GST_VIDEOSTREAMING=OFF
+          cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DQGC_ENABLE_BLUETOOTH=OFF -DQGC_ENABLE_GST_VIDEOSTREAMING=ON -DQGC_ENABLE_QT_VIDEOSTREAMING=OFF -DQGC_VIEWER3D=OFF -DQGC_ENABLE_UVC=OFF
 
       - name: Patch GStreamer qsb external Ninja cycle
         shell: powershell
